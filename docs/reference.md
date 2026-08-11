@@ -54,6 +54,50 @@ Detailed documentation for all scripts and Makefile targets.
 
 ---
 
+## Ollama
+
+### List and inspect
+
+| Target | Description |
+|---|---|
+| `make ollama-list` | List all locally pulled models with size and age |
+| `make ollama-ps` | Show models currently loaded in memory |
+
+### Old models
+
+Filters by the `MODIFIED` column in `ollama list` (supports: years, months, weeks, days).
+
+| Target | Variables | Description |
+|---|---|---|
+| `make ollama-old-list` | `MONTHS=6` | List models not modified in MONTHS months |
+| `make ollama-old-clean` | `MONTHS=6` | Remove models not modified in MONTHS months |
+
+```bash
+# Spot models untouched for 12+ months
+make ollama-old-list MONTHS=12
+
+# Remove them
+make ollama-old-clean MONTHS=12
+```
+
+### Remove a specific model
+
+| Target | Variables | Description |
+|---|---|---|
+| `make ollama-rm` | `MODEL=<name>` | Remove a specific model by name |
+
+```bash
+make ollama-rm MODEL=qwen2.5:1.5b
+```
+
+### Upgrade
+
+| Target | Description |
+|---|---|
+| `make ollama-upgrade` | Upgrade ollama via brew (`brew upgrade ollama`) |
+
+---
+
 ## Docker — Containers
 
 ### Elastic MCP Cleanup

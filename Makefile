@@ -4,13 +4,17 @@ PROJECT       ?=
 ELASTIC_IMAGE := docker.elastic.co/mcp/elasticsearch
 MONTHS        ?= 6
 REPO          ?=
+MODEL         ?=
 
 .PHONY: help \
         list clean-project clean-project-force clean-old clean-old-force \
         docker-elastic-mcp-clean \
         docker-dangling-list docker-dangling-clean \
         docker-old-list docker-old-clean \
-        docker-repo-list docker-repo-clean
+        docker-repo-list docker-repo-clean \
+        ollama-list ollama-ps \
+        ollama-old-list ollama-old-clean \
+        ollama-rm ollama-upgrade
 
 help:
 	@echo ""
@@ -31,6 +35,14 @@ help:
 	@echo "  make docker-old-clean [MONTHS=6]         Remove unused images older than MONTHS months"
 	@echo "  make docker-repo-list REPO=<pattern>     List images matching a repository pattern"
 	@echo "  make docker-repo-clean REPO=<pattern>    Remove images matching a repository pattern"
+	@echo ""
+	@echo "Ollama:"
+	@echo "  make ollama-list                         List all local models"
+	@echo "  make ollama-ps                           Show models currently loaded in memory"
+	@echo "  make ollama-old-list [MONTHS=6]          List models not modified in MONTHS months"
+	@echo "  make ollama-old-clean [MONTHS=6]         Remove models not modified in MONTHS months"
+	@echo "  make ollama-rm MODEL=<name>              Remove a specific model"
+	@echo "  make ollama-upgrade                      Upgrade ollama via brew"
 	@echo ""
 
 # ── Claude session management ────────────────────────────────────────────────
@@ -113,3 +125,54 @@ docker-repo-clean:
 		docker images -q "$(REPO)" | xargs docker rmi -f; \
 		echo "Done."; \
 	fi
+
+# ── Ollama ───────────────────────────────────────────────────────────────────
+
+ollama-list:
+	@ollama list
+
+ollama-ps:
+	@ollama ps
+
+ollama-old-list:
+	@echo "Models not modified in the last $(MONTHS) month(s):"; \
+	echo ""; \
+	ollama list | awk -v threshold=$(MONTHS) \
+		'NR>1 && NF>=3 && $$(NF)=="ago" { \
+			num=$$(NF-2); unit=$$(NF-1); age=0; \
+			if (unit~/^year/) age=num*12; \
+			else if (unit~/^month/) age=num; \
+			else if (unit~/^week/) age=num/4.3; \
+			else if (unit~/^day/) age=num/30; \
+			if (age>=threshold) print $$0 \
+		}'
+
+ollama-old-clean:
+	@models=$$(ollama list | awk -v threshold=$(MONTHS) \
+		'NR>1 && NF>=3 && $$(NF)=="ago" { \
+			num=$$(NF-2); unit=$$(NF-1); age=0; \
+			if (unit~/^year/) age=num*12; \
+			else if (unit~/^month/) age=num; \
+			else if (unit~/^week/) age=num/4.3; \
+			else if (unit~/^day/) age=num/30; \
+			if (age>=threshold) print $$1 \
+		}'); \
+	if [ -z "$$models" ]; then \
+		echo "No models older than $(MONTHS) month(s) found."; \
+	else \
+		echo "Removing models older than $(MONTHS) month(s):"; \
+		echo "$$models"; \
+		echo "$$models" | xargs -I{} ollama rm {}; \
+		echo "Done."; \
+	fi
+
+ollama-rm:
+	@[ -n "$(MODEL)" ] || (echo "Error: MODEL is required. Usage: make ollama-rm MODEL=<name>"; exit 1)
+	@echo "Removing model $(MODEL)..."; \
+	ollama rm $(MODEL); \
+	echo "Done."
+
+ollama-upgrade:
+	@echo "Upgrading ollama via brew..."; \
+	brew upgrade ollama; \
+	echo "Done."
